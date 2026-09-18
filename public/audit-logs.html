@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audit Logs — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Audit Logs</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="empty-state card">
+        <div class="empty-icon">🛡️</div>
+        <h2>Audit logging is wired into the schema, and its screen ships in Phase 7</h2>
+        <p>The <code>audit_logs</code> table and its RLS policies (Admin-only read, insert-only, no edits or
+          deletes ever) already exist. Database triggers that populate it automatically on sensitive changes are
+          added alongside the security review in Phase 7.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script>initShell();</script>
+</body>
+</html>

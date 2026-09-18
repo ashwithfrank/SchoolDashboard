@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Dashboard</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="content-header">
+        <p>A live snapshot of the school. Every figure below is queried directly — nothing here is hardcoded.</p>
+      </div>
+
+      <div class="stat-grid">
+        <div class="card stat-card">
+          <div class="stat-label">Total Students</div>
+          <div class="stat-value" id="stat-students">—</div>
+          <div class="stat-sub" id="stat-students-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total Classes</div>
+          <div class="stat-value" id="stat-classes">—</div>
+          <div class="stat-sub" id="stat-classes-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total Employees</div>
+          <div class="stat-value" id="stat-employees">—</div>
+          <div class="stat-sub" id="stat-employees-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Total Buses</div>
+          <div class="stat-value" id="stat-buses">—</div>
+          <div class="stat-sub" id="stat-buses-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Academic Year</div>
+          <div class="stat-value" id="stat-year">—</div>
+          <div class="stat-sub" id="stat-year-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Fees Collected</div>
+          <div class="stat-value" id="fee-collected">—</div>
+          <div class="stat-sub" id="fee-collected-sub"></div>
+        </div>
+        <div class="card stat-card">
+          <div class="stat-label">Fees Pending</div>
+          <div class="stat-value" id="fee-pending">—</div>
+          <div class="stat-sub" id="fee-pending-sub"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>What's next</h2>
+        <p style="margin-top:8px; color:var(--color-text-muted);">
+          This is the Phase 1 shell: authentication, roles/permissions, and the database schema are live.
+          Student records, fee collection, transport, and academics screens are built out in the following phases —
+          the sidebar already reflects what your role will see once each module ships.
+        </p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/dashboard.js"></script>
+</body>
+</html>

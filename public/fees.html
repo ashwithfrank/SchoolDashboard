@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fee Collection — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Fee Collection</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="empty-state card">
+        <div class="empty-icon">💳</div>
+        <h2>Fee collection is coming in Phase 4</h2>
+        <p>Recording payments, viewing each student's academic + bus fee, discount, paid/pending — all computed live
+          from <code>student_fee_summary</code>, never stored as a redundant total. Visible to Admin and Office
+          Staff only.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script>initShell();</script>
+</body>
+</html>
