@@ -17,7 +17,7 @@ function hideError() {
 
 // If already signed in, skip straight to the dashboard.
 (async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     window.location.href = "dashboard.html";
   }
@@ -42,7 +42,7 @@ form.addEventListener("submit", async (event) => {
   submitBtn.disabled = true;
   submitBtn.textContent = "Signing in…";
 
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
   if (error) {
     showError(error.message || "Could not sign in. Check your email and password.");

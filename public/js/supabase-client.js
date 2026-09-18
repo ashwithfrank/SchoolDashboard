@@ -12,9 +12,9 @@
 // "service_role" key anywhere in this folder.
 // ==========================================================
 
-const SUPABASE_URL = "https://kotdagsmacmjbpebmeqg.supabase.co"; // e.g. https://xxxxxxxx.supabase.co
-const SUPABASE_ANON_KEY = "sb_publishable_e26J_lOLjbUIqnjOMfDV7A_mVAbCYZX";
+const SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL"; // e.g. https://xxxxxxxx.supabase.co
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
 
 // Loaded globally by the Supabase CDN script tag included on every page,
 // before this file.
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

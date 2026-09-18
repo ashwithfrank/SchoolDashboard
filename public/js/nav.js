@@ -26,14 +26,14 @@ const NAV_ITEMS = [
  * Redirects to login.html and never resolves if there's no session.
  */
 async function requireSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
 
   if (!session) {
     window.location.href = "login.html";
     return new Promise(() => {}); // never resolves; we're navigating away
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await supabaseClient
     .from("profiles")
     .select("id, full_name, is_active, role_id, roles ( name )")
     .eq("id", session.user.id)
@@ -41,12 +41,12 @@ async function requireSession() {
 
   if (profileError || !profile || !profile.is_active) {
     // Signed in with Supabase Auth, but no active profile row yet.
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     window.location.href = "login.html?error=no_profile";
     return new Promise(() => {});
   }
 
-  const { data: permRows } = await supabase
+  const { data: permRows } = await supabaseClient
     .from("role_permissions")
     .select("permissions ( code )")
     .eq("role_id", profile.role_id);
@@ -101,7 +101,7 @@ function renderSidebar(profile, permissionCodes) {
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
-      await supabase.auth.signOut();
+      await supabaseClient.auth.signOut();
       window.location.href = "login.html";
     });
   }

@@ -41,10 +41,10 @@ function setCardUnavailable(id, message) {
 
 async function loadCoreCounts() {
   const [studentsRes, classesRes, employeesRes, busesRes] = await Promise.all([
-    supabase.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
-    supabase.from("classes").select("id", { count: "exact", head: true }),
-    supabase.from("employees").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("buses").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabaseClient.from("students").select("id", { count: "exact", head: true }).eq("status", "active"),
+    supabaseClient.from("classes").select("id", { count: "exact", head: true }),
+    supabaseClient.from("employees").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabaseClient.from("buses").select("id", { count: "exact", head: true }).eq("is_active", true),
   ]);
 
   setStat("stat-students", studentsRes.count ?? 0, "Active students");
@@ -54,7 +54,7 @@ async function loadCoreCounts() {
 }
 
 async function loadCurrentAcademicYear() {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from("academic_years")
     .select("label")
     .eq("is_current", true)
@@ -68,7 +68,7 @@ async function loadCurrentAcademicYear() {
 }
 
 async function loadFeeSummary() {
-  const { data: year } = await supabase
+  const { data: year } = await supabaseClient
     .from("academic_years")
     .select("id")
     .eq("is_current", true)
@@ -80,7 +80,7 @@ async function loadFeeSummary() {
     return;
   }
 
-  const { data: rows, error } = await supabase
+  const { data: rows, error } = await supabaseClient
     .from("student_fee_summary")
     .select("total_fee, total_paid, pending")
     .eq("academic_year_id", year.id);

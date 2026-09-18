@@ -10,7 +10,7 @@
 <body>
 <script>
   (async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     window.location.href = session ? "dashboard.html" : "login.html";
   })();
 </script>
