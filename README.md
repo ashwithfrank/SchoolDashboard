@@ -105,9 +105,13 @@ migration to run before Phase 2 will work:
 
 6. `sql/006_academic_year_functions.sql`
 
+Phase 3 (Employees + Buses) needs no new migrations — it uses the
+`employees`, `buses`, and `student_transport_assignments` tables and RLS
+policies that were already part of Phase 1.
+
 ---
 
-## What to test right now (Phase 1 + Phase 2)
+## What to test right now (Phase 1 + 2 + 3)
 
 **Phase 1 — auth, roles, dashboard shell:**
 
@@ -132,6 +136,21 @@ migration to run before Phase 2 will work:
 - [ ] Try adding a student while logged in as Office Staff or Teaching Staff (either by hiding/showing the button via devtools, or navigating straight to `student-form.html`) — it should show "Not authorized" and, if you strip that check out just to test, the actual `insert` should still fail server-side (RLS)
 - [ ] Try setting two academic years as "current" back to back — confirm only one ever shows the "Current" badge at a time
 
+**Phase 3 — employees, buses, transport:**
+
+- [ ] In **Employees**, add a driver (type = Driver) and a teacher (type = Teaching) — both should appear in the list with the right type badge
+- [ ] Filter the employee list by type and by active/inactive, and try the search box against a name/code/contact number
+- [ ] In **Buses**, add a bus and assign the driver you just created — the bus list should show the driver's name
+- [ ] Set a bus's insurance or FC expiry date to a past date, another to within 30 days, and a third more than 30 days out — confirm the badges read **Expired** (red), **Expires** (amber), and **Valid until** (green) respectively
+- [ ] Click into a bus's detail page — you should see its info plus an (empty, for now) assigned-students roster
+- [ ] Open a student's profile → **Transport** tab → assign them to the bus you created, with a location, distance, and a bus fee — save it
+- [ ] Go back to that bus's detail page → the student should now appear in the roster with the location/distance/fee you entered
+- [ ] Add a second student to the **same bus** with a **different** bus fee — confirm both students show their own distinct fee on the bus roster (this is the "per-student bus fee, not per-bus" requirement — the whole reason `student_transport_assignments` exists as its own table)
+- [ ] On the first student's Transport tab, click **Edit**, change the fee, save — confirm it updates
+- [ ] Click **Remove from bus** on a student's Transport tab — confirm they disappear from that bus's roster, and that the Transport tab now shows the "assign" form again (not stuck showing stale data)
+- [ ] Log in as Teaching Staff and open a student's Transport tab — it should say transport details aren't visible to that role, rather than showing (or erroring on) any fee data
+- [ ] Log in as Office Staff and confirm they **can** see and edit Transport (per the confirmed matrix), but that Employees and Buses pages don't show "+ Add" controls for them (view-only) and the sidebar doesn't list Employees for that role at all
+
 If any of those don't hold, tell me what you saw vs. expected and I'll fix it.
 
 ---
@@ -152,14 +171,17 @@ public/
   dashboard.html             -> live stat cards
   students.html                -> class grid -> sections -> student list, + global search
   student-form.html              -> Add Student (Admin only)
-  student-profile.html             -> Basic (view/edit) + Academic history; Transport/Fees/Marks are Phase 3-5 stubs
-  employees.html                     -> Phase 3 placeholder (Admin only)
-  buses.html                           -> Phase 3 placeholder
-  fees.html                              -> Phase 4 placeholder (Admin + Office)
-  academics.html                           -> Phase 5 placeholder (Admin + Teaching)
-  reports.html                               -> Phase 6 placeholder
-  audit-logs.html                              -> Phase 7 placeholder (Admin only)
-  settings.html                                  -> Academic years + Classes/Sections management (Admin only)
+  student-profile.html             -> Basic, Academic, and Transport are functional; Fees/Marks are Phase 4-5 stubs
+  employees.html                     -> list + filters (Admin adds/edits)
+  employee-form.html                   -> Add/Edit Employee (Admin only)
+  buses.html                             -> fleet list with insurance/FC expiry badges
+  bus-form.html                            -> Add/Edit Bus (Admin only)
+  bus-detail.html                            -> bus info + assigned-students roster (Admin + Office see the roster)
+  fees.html                                    -> Phase 4 placeholder (Admin + Office)
+  academics.html                                 -> Phase 5 placeholder (Admin + Teaching)
+  reports.html                                     -> Phase 6 placeholder
+  audit-logs.html                                    -> Phase 7 placeholder (Admin only)
+  settings.html                                        -> Academic years + Classes/Sections management (Admin only)
   css/styles.css
   js/
     supabase-client.js    -> fill in your project URL + anon key here
@@ -168,13 +190,19 @@ public/
     dashboard.js
     students.js            -> class/section browsing + search
     student-form.js
-    student-profile.js
+    student-profile.js      -> Basic/Academic/Transport tab logic
     settings.js            -> academic years + classes/sections
+    employees.js            -> employee list + filters
+    employee-form.js
+    buses.js                -> bus list + expiry badge logic
+    bus-form.js
+    bus-detail.js            -> bus info + roster (permission-gated)
 ```
 
 ## Notes on what's deliberately not built yet
 
-- No employee/bus/fee/academic CRUD screens yet — Phases 3–6.
+- No fee/academic CRUD screens yet — Phases 4–5 (fee structures, payments,
+  subjects, exams, marks).
 - No staff-account-management UI — Admin creates new logins via SQL for now
   (step 3 above); that screen is one of the first things worth building next,
   since it removes the only manual-SQL step in normal operation.
@@ -189,3 +217,7 @@ public/
   schema and RLS are in place, but assigning a coordinator to a section isn't
   exposed anywhere yet. Worth adding to Settings alongside sections if you
   want it sooner rather than later.
+- Removing a student from a bus deletes their `student_transport_assignments`
+  row outright (not a soft-deactivate) — matching the "no row = no bus"
+  design from the architecture doc, and it also means they can be reassigned
+  to a different bus the same year without hitting a uniqueness conflict.
