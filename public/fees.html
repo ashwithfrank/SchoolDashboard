@@ -20,12 +20,8 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">💳</div>
-        <h2>Fee collection is coming in Phase 4</h2>
-        <p>Recording payments, viewing each student's academic + bus fee, discount, paid/pending — all computed live
-          from <code>student_fee_summary</code>, never stored as a redundant total. Visible to Admin and Office
-          Staff only.</p>
+      <div id="fees-content">
+        <div class="loading-row">Loading…</div>
       </div>
     </main>
   </div>
@@ -34,6 +30,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/fees.js"></script>
 </body>
 </html>

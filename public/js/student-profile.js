@@ -1,23 +1,32 @@
 // ==========================================================
-// Student profile: Basic (view/edit), Academic history, and
-// Transport (view/assign/edit/remove) are functional. Fees and
-// Marks tabs are placeholders until their phases ship.
+// Student profile: Basic (view/edit), Academic history,
+// Transport (view/assign/edit/remove), and Fees (view/setup/
+// discount/record payment/history) are functional. Marks is a
+// placeholder until Phase 5 ships.
 // ==========================================================
 
 let STUDENT_ID = null;
 let CAN_EDIT_IDENTITY = false;
 let CAN_MANAGE_STATUS = false;
 let CAN_MANAGE_TRANSPORT = false;
+let CAN_MANAGE_FEES = false;
+let CAN_RECORD_PAYMENT = false;
+let CAN_VIEW_FEES = false;
+let CURRENT_USER_ID = null;
 let STUDENT_DATA = null;
 let CURRENT_YEAR = null;
 
 (async () => {
-  const { permissionCodes } = await initShell();
+  const { permissionCodes, session } = await initShell();
   document.getElementById("page-title").textContent = "Student Profile";
 
   CAN_EDIT_IDENTITY = permissionCodes.has("students.edit") || permissionCodes.has("students.manage");
   CAN_MANAGE_STATUS = permissionCodes.has("students.manage");
   CAN_MANAGE_TRANSPORT = permissionCodes.has("transport.manage");
+  CAN_MANAGE_FEES = permissionCodes.has("academic_fees.manage");
+  CAN_RECORD_PAYMENT = permissionCodes.has("fee_payments.record");
+  CAN_VIEW_FEES = CAN_MANAGE_FEES || CAN_RECORD_PAYMENT || permissionCodes.has("fee_reports.view");
+  CURRENT_USER_ID = session.user.id;
 
   const params = new URLSearchParams(window.location.search);
   STUDENT_ID = params.get("id");
@@ -34,6 +43,7 @@ let CURRENT_YEAR = null;
   await loadStudent();
   await loadAcademicHistory();
   await loadTransport();
+  await loadFees();
 })();
 
 function wireTabs() {
@@ -384,6 +394,327 @@ async function removeTransport(assignmentId) {
   }
 
   await loadTransport();
+}
+
+// ---------- Fees tab ----------
+
+async function loadFees() {
+  const panel = document.getElementById("panel-fees");
+
+  if (!CURRENT_YEAR) {
+    panel.innerHTML = `<p class="field-hint">No current academic year set — an administrator needs to set one in Settings first.</p>`;
+    return;
+  }
+
+  if (!CAN_VIEW_FEES) {
+    panel.innerHTML = `<p class="field-hint">Fee details aren't visible to your role.</p>`;
+    return;
+  }
+
+  const { data: assignment, error } = await supabaseClient
+    .from("student_fee_assignments")
+    .select("id, fee_structure_id, academic_fee_applicable, discount_amount, notes")
+    .eq("student_id", STUDENT_ID)
+    .eq("academic_year_id", CURRENT_YEAR.id)
+    .maybeSingle();
+
+  if (error) {
+    panel.innerHTML = `<p class="field-hint">Couldn't load fee details.</p>`;
+    return;
+  }
+
+  if (!assignment) {
+    await renderFeeSetup();
+    return;
+  }
+
+  await renderFeeView(assignment);
+}
+
+async function renderFeeSetup() {
+  const panel = document.getElementById("panel-fees");
+
+  if (!CAN_MANAGE_FEES) {
+    panel.innerHTML = `<p class="field-hint">No fees have been set up for this student for ${escapeHtml(CURRENT_YEAR.label)} yet. An administrator or office staff member needs to set this up.</p>`;
+    return;
+  }
+
+  // Look up this student's current class to suggest the class fee structure.
+  const { data: enrollment } = await supabaseClient
+    .from("student_academic_records")
+    .select("class_id")
+    .eq("student_id", STUDENT_ID)
+    .eq("academic_year_id", CURRENT_YEAR.id)
+    .maybeSingle();
+
+  let suggestedFee = "";
+  let feeStructureId = null;
+  if (enrollment) {
+    const { data: fs } = await supabaseClient
+      .from("fee_structures")
+      .select("id, academic_fee")
+      .eq("academic_year_id", CURRENT_YEAR.id)
+      .eq("class_id", enrollment.class_id)
+      .maybeSingle();
+    if (fs) {
+      suggestedFee = fs.academic_fee;
+      feeStructureId = fs.id;
+    }
+  }
+
+  panel.innerHTML = `
+    <p class="field-hint" style="margin-bottom:14px;">No fees set up for ${escapeHtml(CURRENT_YEAR.label)} yet.</p>
+    ${!feeStructureId ? `<p class="form-error visible">No fee structure is set for this student's class yet — set one in <a href="fees.html">Fee Collection</a> first, or enter an amount manually below.</p>` : ""}
+    <div class="form-error" id="fee-setup-error"></div>
+    <form id="fee-setup-form">
+      <div class="form-grid">
+        <div class="field">
+          <label for="setup-academic-fee">Academic fee *</label>
+          <input type="number" min="0" step="1" id="setup-academic-fee" value="${suggestedFee}" required />
+        </div>
+        <div class="field">
+          <label for="setup-discount">Discount</label>
+          <input type="number" min="0" step="1" id="setup-discount" value="0" />
+        </div>
+        <div class="field field-wide">
+          <label for="setup-notes">Notes</label>
+          <input type="text" id="setup-notes" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn" id="setup-save-btn">Set up fees</button>
+      </div>
+    </form>
+  `;
+
+  document.getElementById("fee-setup-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorBox = document.getElementById("fee-setup-error");
+    errorBox.classList.remove("visible");
+
+    if (!feeStructureId) {
+      errorBox.textContent = "No fee structure exists for this class/year yet — set one up in Fee Collection first.";
+      errorBox.classList.add("visible");
+      return;
+    }
+
+    const btn = document.getElementById("setup-save-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    const { error } = await supabaseClient.from("student_fee_assignments").insert({
+      student_id: STUDENT_ID,
+      academic_year_id: CURRENT_YEAR.id,
+      fee_structure_id: feeStructureId,
+      academic_fee_applicable: Number(document.getElementById("setup-academic-fee").value),
+      discount_amount: Number(document.getElementById("setup-discount").value) || 0,
+      notes: document.getElementById("setup-notes").value.trim() || null,
+    });
+
+    if (error) {
+      errorBox.textContent = error.message;
+      errorBox.classList.add("visible");
+      btn.disabled = false;
+      btn.textContent = "Set up fees";
+      return;
+    }
+
+    await loadFees();
+  });
+}
+
+async function renderFeeView(assignment) {
+  const panel = document.getElementById("panel-fees");
+
+  const [{ data: summary }, { data: payments, error: payError }] = await Promise.all([
+    supabaseClient
+      .from("student_fee_summary")
+      .select("academic_fee_applicable, bus_fee_applicable, discount_amount, total_fee, total_paid, pending")
+      .eq("student_id", STUDENT_ID)
+      .eq("academic_year_id", CURRENT_YEAR.id)
+      .maybeSingle(),
+    supabaseClient
+      .from("fee_payments")
+      .select("id, fee_type, amount, payment_date, notes, profiles ( full_name )")
+      .eq("student_id", STUDENT_ID)
+      .eq("academic_year_id", CURRENT_YEAR.id)
+      .order("payment_date", { ascending: false }),
+  ]);
+
+  const editButton = CAN_MANAGE_FEES ? `<button class="btn btn-secondary" id="edit-fee-btn">Edit discount</button>` : "";
+
+  panel.innerHTML = `
+    <div class="toolbar"><div></div>${editButton}</div>
+    <div class="form-grid" style="margin-bottom:24px;">
+      ${field("Academic fee", formatCurrency(summary?.academic_fee_applicable))}
+      ${field("Bus fee", formatCurrency(summary?.bus_fee_applicable))}
+      ${field("Discount", formatCurrency(summary?.discount_amount))}
+      ${field("Total", formatCurrency(summary?.total_fee))}
+      ${field("Paid", formatCurrency(summary?.total_paid))}
+      ${field("Pending", formatCurrency(summary?.pending))}
+    </div>
+
+    ${CAN_RECORD_PAYMENT ? recordPaymentFormHtml() : ""}
+
+    <h3 style="margin:22px 0 10px;">Payment History</h3>
+    <div id="payment-history">${paymentHistoryHtml(payments, payError)}</div>
+  `;
+
+  const editBtn = document.getElementById("edit-fee-btn");
+  if (editBtn) editBtn.addEventListener("click", () => renderDiscountEditForm(assignment));
+
+  const payForm = document.getElementById("record-payment-form");
+  if (payForm) payForm.addEventListener("submit", onRecordPayment);
+}
+
+function paymentHistoryHtml(payments, error) {
+  if (error) return `<p class="field-hint">Couldn't load payment history.</p>`;
+  if (!payments || !payments.length) return `<p class="field-hint">No payments recorded yet.</p>`;
+
+  return `
+    <table>
+      <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Notes</th><th>Recorded By</th></tr></thead>
+      <tbody>
+        ${payments
+          .map(
+            (p) => `
+              <tr>
+                <td>${escapeHtml(p.payment_date)}</td>
+                <td><span class="badge badge-neutral">${escapeHtml(p.fee_type)}</span></td>
+                <td>${formatCurrency(p.amount)}</td>
+                <td>${p.notes ? escapeHtml(p.notes) : "—"}</td>
+                <td>${p.profiles ? escapeHtml(p.profiles.full_name) : "—"}</td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function recordPaymentFormHtml() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `
+    <div class="section-block">
+      <h3>Record a Payment</h3>
+      <div class="form-error" id="payment-error"></div>
+      <form id="record-payment-form">
+        <div class="form-grid">
+          <div class="field">
+            <label for="pay-type">Fee type *</label>
+            <select id="pay-type" required>
+              <option value="academic">Academic</option>
+              <option value="bus">Bus</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pay-amount">Amount *</label>
+            <input type="number" min="1" step="1" id="pay-amount" required />
+          </div>
+          <div class="field">
+            <label for="pay-date">Payment date *</label>
+            <input type="date" id="pay-date" value="${today}" required />
+          </div>
+          <div class="field field-wide">
+            <label for="pay-notes">Notes</label>
+            <input type="text" id="pay-notes" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn" id="record-payment-btn">Record Payment</button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+async function onRecordPayment(event) {
+  event.preventDefault();
+  const errorBox = document.getElementById("payment-error");
+  errorBox.classList.remove("visible");
+
+  const btn = document.getElementById("record-payment-btn");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  const { error } = await supabaseClient.from("fee_payments").insert({
+    student_id: STUDENT_ID,
+    academic_year_id: CURRENT_YEAR.id,
+    fee_type: document.getElementById("pay-type").value,
+    amount: Number(document.getElementById("pay-amount").value),
+    payment_date: document.getElementById("pay-date").value,
+    notes: document.getElementById("pay-notes").value.trim() || null,
+    recorded_by: CURRENT_USER_ID,
+  });
+
+  if (error) {
+    errorBox.textContent = error.message;
+    errorBox.classList.add("visible");
+    btn.disabled = false;
+    btn.textContent = "Record Payment";
+    return;
+  }
+
+  await loadFees();
+}
+
+function renderDiscountEditForm(assignment) {
+  const panel = document.getElementById("panel-fees");
+  panel.innerHTML = `
+    <div class="form-error" id="discount-edit-error"></div>
+    <form id="discount-edit-form">
+      <div class="form-grid">
+        <div class="field">
+          <label for="edit-academic-fee">Academic fee</label>
+          <input type="number" min="0" step="1" id="edit-academic-fee" value="${assignment.academic_fee_applicable}" required />
+        </div>
+        <div class="field">
+          <label for="edit-discount">Discount</label>
+          <input type="number" min="0" step="1" id="edit-discount" value="${assignment.discount_amount}" />
+        </div>
+        <div class="field field-wide">
+          <label for="edit-fee-notes">Notes</label>
+          <input type="text" id="edit-fee-notes" value="${attr(assignment.notes || "")}" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn" id="save-discount-btn">Save</button>
+        <button type="button" class="btn btn-secondary" id="cancel-discount-btn">Cancel</button>
+      </div>
+    </form>
+  `;
+
+  document.getElementById("cancel-discount-btn").addEventListener("click", loadFees);
+  document.getElementById("discount-edit-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorBox = document.getElementById("discount-edit-error");
+    errorBox.classList.remove("visible");
+
+    const btn = document.getElementById("save-discount-btn");
+    btn.disabled = true;
+    btn.textContent = "Saving…";
+
+    const { error } = await supabaseClient
+      .from("student_fee_assignments")
+      .update({
+        academic_fee_applicable: Number(document.getElementById("edit-academic-fee").value),
+        discount_amount: Number(document.getElementById("edit-discount").value) || 0,
+        notes: document.getElementById("edit-fee-notes").value.trim() || null,
+      })
+      .eq("id", assignment.id);
+
+    if (error) {
+      errorBox.textContent = error.message;
+      errorBox.classList.add("visible");
+      btn.disabled = false;
+      btn.textContent = "Save";
+      return;
+    }
+
+    await loadFees();
+  });
 }
 
 // ---------- Helpers ----------
