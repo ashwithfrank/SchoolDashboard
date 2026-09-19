@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Add/Edit Employee — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Add Employee</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="breadcrumb"><a href="employees.html">Employees</a><span class="sep">/</span><span class="current" id="form-heading">Add Employee</span></div>
+
+      <div id="form-area">
+        <div class="card">
+          <div class="form-error" id="form-error"></div>
+
+          <form id="employee-form" novalidate>
+            <div class="form-grid">
+              <div class="field">
+                <label for="full_name">Full name *</label>
+                <input type="text" id="full_name" required />
+              </div>
+              <div class="field">
+                <label for="employee_code">Employee code *</label>
+                <input type="text" id="employee_code" required />
+              </div>
+              <div class="field">
+                <label for="employee_type">Type *</label>
+                <select id="employee_type" required>
+                  <option value="teaching">Teaching</option>
+                  <option value="office">Office</option>
+                  <option value="driver">Driver</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="designation">Designation</label>
+                <input type="text" id="designation" />
+              </div>
+              <div class="field">
+                <label for="contact_number">Contact number</label>
+                <input type="text" id="contact_number" />
+              </div>
+              <div class="field">
+                <label for="email">Email</label>
+                <input type="email" id="email" />
+              </div>
+              <div class="field field-wide">
+                <label for="address">Address</label>
+                <input type="text" id="address" />
+              </div>
+              <div class="field">
+                <label for="joining_date">Joining date</label>
+                <input type="date" id="joining_date" />
+              </div>
+              <div class="field" id="active-field-wrap" style="display:none; align-self:end;">
+                <label style="display:flex; align-items:center; gap:8px; margin-bottom:0;">
+                  <input type="checkbox" id="is_active" style="width:auto;" />
+                  Active
+                </label>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn" id="submit-btn">Add Employee</button>
+              <a href="employees.html" class="btn btn-secondary">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/employee-form.js"></script>
+</body>
+</html>

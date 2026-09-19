@@ -20,11 +20,16 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">🚌</div>
-        <h2>Bus fleet management is coming in Phase 3</h2>
-        <p>Bus number, driver, insurance/FC expiry, and each bus's assigned students — with each student's own
-          location, distance, and bus fee, per the confirmed per-student transport design.</p>
+      <div class="toolbar">
+        <div></div>
+        <a href="bus-form.html" class="btn" id="add-bus-link" style="display:none;">+ Add Bus</a>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Bus Number</th><th>Driver</th><th>Insurance</th><th>FC</th><th>Capacity</th><th>Status</th></tr></thead>
+          <tbody id="buses-tbody"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+        </table>
       </div>
     </main>
   </div>
@@ -33,6 +38,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/buses.js"></script>
 </body>
 </html>

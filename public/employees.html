@@ -20,11 +20,31 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">🧑‍🏫</div>
-        <h2>Employee management is coming in Phase 3</h2>
-        <p>Teaching staff, office staff, and drivers, with the fields already modeled in the
-          <code>employees</code> table — this page is visible to Admin only, matching the confirmed role matrix.</p>
+      <div class="toolbar">
+        <form id="search-form" style="display:flex; gap:8px; flex:1;">
+          <input type="search" id="search-input" placeholder="Search by name, code, or contact number" style="flex:1; max-width:320px; padding:9px 12px; border:1px solid var(--color-border); border-radius:6px;" />
+          <select id="type-filter" style="padding:9px 11px; border:1px solid var(--color-border); border-radius:6px;">
+            <option value="">All types</option>
+            <option value="teaching">Teaching</option>
+            <option value="office">Office</option>
+            <option value="driver">Driver</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="status-filter" style="padding:9px 11px; border:1px solid var(--color-border); border-radius:6px;">
+            <option value="">Any status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button type="submit" class="btn btn-secondary">Search</button>
+        </form>
+        <a href="employee-form.html" class="btn" id="add-employee-link" style="display:none;">+ Add Employee</a>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Designation</th><th>Contact</th><th>Status</th></tr></thead>
+          <tbody id="employees-tbody"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+        </table>
       </div>
     </main>
   </div>
@@ -33,6 +53,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/employees.js"></script>
 </body>
 </html>

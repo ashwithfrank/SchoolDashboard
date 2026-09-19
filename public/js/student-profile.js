@@ -1,13 +1,15 @@
 // ==========================================================
-// Student profile: Basic (view/edit) + Academic history are
-// functional. Transport/Fees/Academics tabs are placeholders
-// until their phases ship.
+// Student profile: Basic (view/edit), Academic history, and
+// Transport (view/assign/edit/remove) are functional. Fees and
+// Marks tabs are placeholders until their phases ship.
 // ==========================================================
 
 let STUDENT_ID = null;
 let CAN_EDIT_IDENTITY = false;
 let CAN_MANAGE_STATUS = false;
+let CAN_MANAGE_TRANSPORT = false;
 let STUDENT_DATA = null;
+let CURRENT_YEAR = null;
 
 (async () => {
   const { permissionCodes } = await initShell();
@@ -15,6 +17,7 @@ let STUDENT_DATA = null;
 
   CAN_EDIT_IDENTITY = permissionCodes.has("students.edit") || permissionCodes.has("students.manage");
   CAN_MANAGE_STATUS = permissionCodes.has("students.manage");
+  CAN_MANAGE_TRANSPORT = permissionCodes.has("transport.manage");
 
   const params = new URLSearchParams(window.location.search);
   STUDENT_ID = params.get("id");
@@ -24,9 +27,13 @@ let STUDENT_DATA = null;
     return;
   }
 
+  const { data: year } = await supabaseClient.from("academic_years").select("id, label").eq("is_current", true).maybeSingle();
+  CURRENT_YEAR = year || null;
+
   wireTabs();
   await loadStudent();
   await loadAcademicHistory();
+  await loadTransport();
 })();
 
 function wireTabs() {
@@ -224,7 +231,166 @@ async function loadAcademicHistory() {
   `;
 }
 
+// ---------- Transport tab ----------
+
+async function loadTransport() {
+  const panel = document.getElementById("panel-transport");
+
+  if (!CURRENT_YEAR) {
+    panel.innerHTML = `<p class="field-hint">No current academic year set — an administrator needs to set one in Settings first.</p>`;
+    return;
+  }
+
+  if (!CAN_MANAGE_TRANSPORT) {
+    panel.innerHTML = `<p class="field-hint">Transport details aren't visible to your role.</p>`;
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("student_transport_assignments")
+    .select("id, bus_id, location, distance_km, bus_fee, buses ( bus_number )")
+    .eq("student_id", STUDENT_ID)
+    .eq("academic_year_id", CURRENT_YEAR.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    panel.innerHTML = `<p class="field-hint">Couldn't load transport details.</p>`;
+    return;
+  }
+
+  if (!data) {
+    renderTransportAssignForm(null);
+    return;
+  }
+
+  renderTransportView(data);
+}
+
+function renderTransportView(assignment) {
+  document.getElementById("panel-transport").innerHTML = `
+    <div class="toolbar"><div></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-secondary" id="edit-transport-btn">Edit</button>
+        <button class="btn btn-danger" id="remove-transport-btn">Remove from bus</button>
+      </div>
+    </div>
+    <div class="form-grid">
+      ${field("Bus", escapeHtml(assignment.buses.bus_number))}
+      ${field("Location", assignment.location ? escapeHtml(assignment.location) : "—")}
+      ${field("Distance", assignment.distance_km != null ? assignment.distance_km + " km" : "—")}
+      ${field("Bus fee (this year)", formatCurrency(assignment.bus_fee))}
+    </div>
+  `;
+
+  document.getElementById("edit-transport-btn").addEventListener("click", () => renderTransportAssignForm(assignment));
+  document.getElementById("remove-transport-btn").addEventListener("click", () => removeTransport(assignment.id));
+}
+
+async function renderTransportAssignForm(existing) {
+  const { data: buses } = await supabaseClient
+    .from("buses")
+    .select("id, bus_number")
+    .eq("is_active", true)
+    .order("bus_number");
+
+  const busOptions = (buses || [])
+    .map(
+      (b) =>
+        `<option value="${b.id}" ${existing && existing.bus_id === b.id ? "selected" : ""}>${escapeHtml(b.bus_number)}</option>`
+    )
+    .join("");
+
+  document.getElementById("panel-transport").innerHTML = `
+    ${existing ? "" : `<p class="field-hint" style="margin-bottom:14px;">No bus assigned for ${escapeHtml(CURRENT_YEAR.label)} yet.</p>`}
+    <div class="form-error" id="transport-error"></div>
+    <form id="transport-form">
+      <div class="form-grid">
+        <div class="field">
+          <label for="t-bus">Bus *</label>
+          <select id="t-bus" required><option value="">Select a bus…</option>${busOptions}</select>
+        </div>
+        <div class="field">
+          <label for="t-location">Location</label>
+          <input type="text" id="t-location" value="${existing ? attr(existing.location || "") : ""}" />
+        </div>
+        <div class="field">
+          <label for="t-distance">Distance (km)</label>
+          <input type="number" step="0.1" min="0" id="t-distance" value="${existing && existing.distance_km != null ? existing.distance_km : ""}" />
+        </div>
+        <div class="field">
+          <label for="t-fee">Bus fee (this year) *</label>
+          <input type="number" step="1" min="0" id="t-fee" value="${existing ? existing.bus_fee : ""}" required />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn" id="save-transport-btn">${existing ? "Save changes" : "Assign to bus"}</button>
+        ${existing ? `<button type="button" class="btn btn-secondary" id="cancel-transport-btn">Cancel</button>` : ""}
+      </div>
+    </form>
+  `;
+
+  if (existing) {
+    document.getElementById("cancel-transport-btn").addEventListener("click", () => renderTransportView(existing));
+  }
+  document.getElementById("transport-form").addEventListener("submit", (e) => onSaveTransport(e, existing));
+}
+
+async function onSaveTransport(event, existing) {
+  event.preventDefault();
+  const errorBox = document.getElementById("transport-error");
+  errorBox.classList.remove("visible");
+
+  const saveBtn = document.getElementById("save-transport-btn");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving…";
+
+  const distanceVal = document.getElementById("t-distance").value.trim();
+
+  const payload = {
+    bus_id: document.getElementById("t-bus").value,
+    location: document.getElementById("t-location").value.trim() || null,
+    distance_km: distanceVal ? Number(distanceVal) : null,
+    bus_fee: Number(document.getElementById("t-fee").value),
+  };
+
+  const query = existing
+    ? supabaseClient.from("student_transport_assignments").update(payload).eq("id", existing.id)
+    : supabaseClient
+        .from("student_transport_assignments")
+        .insert({ ...payload, student_id: STUDENT_ID, academic_year_id: CURRENT_YEAR.id });
+
+  const { error } = await query;
+
+  if (error) {
+    errorBox.textContent = error.message;
+    errorBox.classList.add("visible");
+    saveBtn.disabled = false;
+    saveBtn.textContent = existing ? "Save changes" : "Assign to bus";
+    return;
+  }
+
+  await loadTransport();
+}
+
+async function removeTransport(assignmentId) {
+  if (!confirm("Remove this student from their assigned bus for the current year?")) return;
+
+  const { error } = await supabaseClient.from("student_transport_assignments").delete().eq("id", assignmentId);
+
+  if (error) {
+    alert(`Couldn't remove the assignment: ${error.message}`);
+    return;
+  }
+
+  await loadTransport();
+}
+
 // ---------- Helpers ----------
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount || 0);
+}
 
 function statusBadge(status) {
   const map = {
