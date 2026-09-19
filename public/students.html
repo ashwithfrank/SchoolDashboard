@@ -20,12 +20,15 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">🎓</div>
-        <h2>Class → Section → Student list is coming in Phase 2</h2>
-        <p>This page will show the class list (LKG through Class 10), drill into sections, and open a full student
-          profile with Basic / Academic / Transport / Fees / Academics tabs — all backed by the schema already
-          in <code>sql/002_tables.sql</code>.</p>
+      <form id="search-form" class="search-bar">
+        <input type="search" id="search-input" placeholder="Search by name, SATS number, admission number, parent name, or contact number" />
+        <button type="submit" class="btn btn-secondary">Search</button>
+      </form>
+
+      <div class="breadcrumb" id="breadcrumb"></div>
+
+      <div id="students-body">
+        <div class="loading-row">Loading…</div>
       </div>
     </main>
   </div>
@@ -34,6 +37,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/students.js"></script>
 </body>
 </html>

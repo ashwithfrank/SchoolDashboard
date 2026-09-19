@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Add Student — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Add Student</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div id="form-area">
+        <div class="card">
+          <div class="content-header">
+            <p>Enrolling into <strong id="current-year-label">…</strong></p>
+          </div>
+
+          <div class="form-error" id="form-error"></div>
+
+          <form id="student-form" novalidate>
+            <h3>Basic details</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label for="full_name">Full name *</label>
+                <input type="text" id="full_name" required />
+              </div>
+              <div class="field">
+                <label for="sats_number">SATS number *</label>
+                <input type="text" id="sats_number" required />
+              </div>
+              <div class="field">
+                <label for="admission_number">Admission number</label>
+                <input type="text" id="admission_number" />
+              </div>
+              <div class="field">
+                <label for="gender">Gender</label>
+                <select id="gender">
+                  <option value="">—</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="date_of_birth">Date of birth</label>
+                <input type="date" id="date_of_birth" />
+              </div>
+              <div class="field">
+                <label for="father_name">Father's name</label>
+                <input type="text" id="father_name" />
+              </div>
+              <div class="field">
+                <label for="mother_name">Mother's name</label>
+                <input type="text" id="mother_name" />
+              </div>
+              <div class="field">
+                <label for="contact_number">Contact number</label>
+                <input type="text" id="contact_number" />
+              </div>
+            </div>
+
+            <h3>Academic placement</h3>
+            <div class="form-grid">
+              <div class="field">
+                <label for="class-select">Class *</label>
+                <select id="class-select" required></select>
+              </div>
+              <div class="field">
+                <label for="section-select">Section *</label>
+                <select id="section-select" required>
+                  <option value="">Select a class first…</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="roll_number">Roll number</label>
+                <input type="text" id="roll_number" />
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn" id="submit-btn">Add Student</button>
+              <a href="students.html" class="btn btn-secondary">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/student-form.js"></script>
+</body>
+</html>

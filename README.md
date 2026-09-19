@@ -100,24 +100,39 @@ configuration beyond "point it at the `public/` folder":
 No environment variables, no server process, no `.env` file to manage — the
 only configuration is the two values in `supabase-client.js`.
 
+If you're picking this up after Phase 1 already worked, there's one more
+migration to run before Phase 2 will work:
+
+6. `sql/006_academic_year_functions.sql`
+
 ---
 
-## What to test right now
+## What to test right now (Phase 1 + Phase 2)
 
-Since this is the Phase 1 shell, here's what's actually functional today:
+**Phase 1 — auth, roles, dashboard shell:**
 
 - [ ] Visiting the site with no session redirects to `login.html`
 - [ ] Logging in with the Admin account you bootstrapped works and lands on `dashboard.html`
-- [ ] The sidebar shows **every** nav item for the Admin account (Students, Employees, Buses, Fee Collection, Academics, Reports, Audit Logs, Settings)
-- [ ] The dashboard's stat cards show real counts (Total Classes should read **12** — LKG, UKG, Class 1–10 — from the seed data; Students/Employees/Buses will read **0** until you add data in a later phase)
-- [ ] "Academic Year" card says "Not set" (expected — no academic year has been created/marked current yet; that screen ships in Phase 2)
-- [ ] Logging out returns you to the login page and a subsequent visit to `dashboard.html` bounces you back to login (session is actually gone)
-- [ ] Create a second Supabase Auth user + a `profiles` row with `role_id` set to `office_staff` (via SQL, same pattern as step 3) and confirm: that login sees **only** Dashboard, Students, Buses, Fee Collection, Reports in the sidebar — no Employees, Academics, Audit Logs, or Settings
-- [ ] Same test for a `teaching_staff` account: should see Dashboard, Students, Buses, Academics, Reports — no Employees, Fee Collection, Audit Logs, Settings
-- [ ] Try querying a restricted table directly from the browser console while logged in as Teaching Staff, e.g. `supabase.from('fee_payments').select('*')` — it should come back **empty**, not because the frontend hid it, but because RLS refuses the row. That's the "enforced at the database, not just the UI" requirement working.
+- [ ] The sidebar shows **every** nav item for the Admin account
+- [ ] Logging out returns you to the login page and a subsequent visit to `dashboard.html` bounces you back to login
+- [ ] Create a second Supabase Auth user + a `profiles` row with `role_id` set to `office_staff` (same pattern as step 3 above) and confirm that login sees **only** Dashboard, Students, Buses, Fee Collection, Reports in the sidebar
+- [ ] Same test for a `teaching_staff` account: Dashboard, Students, Buses, Academics, Reports only
+- [ ] While logged in as Teaching Staff, open the browser console and run `supabaseClient.from('fee_payments').select('*')` — it should come back **empty**, because RLS refuses the row, not because the UI hid a button
 
-If any of those don't hold, that's exactly the kind of thing to flag back —
-tell me what you saw vs. expected and I'll fix it.
+**Phase 2 — academic years, classes/sections, students:**
+
+- [ ] In **Settings**, add an academic year (e.g. `2026-27`) and click "Set as current" — the Dashboard's "Academic Year" card should update immediately, and "Total Classes" already reads **12** from the seed data
+- [ ] Still in Settings, add a section (e.g. "A") to a couple of classes
+- [ ] Go to **Students** — you should see all 12 classes as tiles, each showing a student count (0 for now)
+- [ ] Click into a class with a section you added → you should see that section as a tile
+- [ ] Click **+ Add Student** (only visible for Admin), fill in the form, submit — you should land on that student's profile page
+- [ ] Go back to Students → the class and section tiles should now show the updated count, and the student list inside that section should show the new student
+- [ ] On the student's profile, click **Edit** on the Basic tab, change a field, save — it should update immediately. Try this while logged in as Office Staff and Teaching Staff too (both should be able to edit, per the confirmed role matrix) — but the **Status** dropdown should only appear for Admin
+- [ ] Use the search bar on the Students page to search by partial name, SATS number, or parent name — confirm it finds the student regardless of which class/section you're currently browsing
+- [ ] Try adding a student while logged in as Office Staff or Teaching Staff (either by hiding/showing the button via devtools, or navigating straight to `student-form.html`) — it should show "Not authorized" and, if you strip that check out just to test, the actual `insert` should still fail server-side (RLS)
+- [ ] Try setting two academic years as "current" back to back — confirm only one ever shows the "Current" badge at a time
+
+If any of those don't hold, tell me what you saw vs. expected and I'll fix it.
 
 ---
 
@@ -130,33 +145,47 @@ sql/
   003_views.sql
   004_rls_policies.sql
   005_seed.sql
+  006_academic_year_functions.sql
 public/
-  index.html            -> redirects to login or dashboard based on session
+  index.html                -> redirects to login or dashboard based on session
   login.html
-  dashboard.html         -> live stat cards
-  students.html           -> Phase 2 placeholder
-  employees.html          -> Phase 3 placeholder (Admin only)
-  buses.html               -> Phase 3 placeholder
-  fees.html                 -> Phase 4 placeholder (Admin + Office)
-  academics.html            -> Phase 5 placeholder (Admin + Teaching)
-  reports.html               -> Phase 6 placeholder
-  audit-logs.html            -> Phase 7 placeholder (Admin only)
-  settings.html               -> Admin only
+  dashboard.html             -> live stat cards
+  students.html                -> class grid -> sections -> student list, + global search
+  student-form.html              -> Add Student (Admin only)
+  student-profile.html             -> Basic (view/edit) + Academic history; Transport/Fees/Marks are Phase 3-5 stubs
+  employees.html                     -> Phase 3 placeholder (Admin only)
+  buses.html                           -> Phase 3 placeholder
+  fees.html                              -> Phase 4 placeholder (Admin + Office)
+  academics.html                           -> Phase 5 placeholder (Admin + Teaching)
+  reports.html                               -> Phase 6 placeholder
+  audit-logs.html                              -> Phase 7 placeholder (Admin only)
+  settings.html                                  -> Academic years + Classes/Sections management (Admin only)
   css/styles.css
   js/
     supabase-client.js    -> fill in your project URL + anon key here
     nav.js                -> session guard + role-filtered sidebar + logout
     login.js
     dashboard.js
+    students.js            -> class/section browsing + search
+    student-form.js
+    student-profile.js
+    settings.js            -> academic years + classes/sections
 ```
 
 ## Notes on what's deliberately not built yet
 
-- No student/employee/bus/fee/academic CRUD screens — Phases 2–6.
+- No employee/bus/fee/academic CRUD screens yet — Phases 3–6.
 - No staff-account-management UI — Admin creates new logins via SQL for now
   (step 3 above); that screen is one of the first things worth building next,
   since it removes the only manual-SQL step in normal operation.
 - No audit-log-writing triggers yet — the table and its RLS exist and are
   locked down, but nothing populates it yet (Phase 7).
-- No bulk promotion — the schema is shaped for it (see the architecture doc),
-  but the workflow itself is a later phase.
+- No bulk promotion, and no way to move a student to a new year/class from the
+  UI yet — the schema is shaped for it (see the architecture doc: every
+  enrollment is its own row per student per year), but the promotion workflow
+  itself is a later phase. Right now a student's academic history can only
+  grow via the initial enrollment created when they're added.
+- Section coordinators (`section_coordinators` table) have no UI yet — the
+  schema and RLS are in place, but assigning a coordinator to a section isn't
+  exposed anywhere yet. Worth adding to Settings alongside sections if you
+  want it sooner rather than later.

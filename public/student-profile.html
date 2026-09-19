@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Student Profile — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Student Profile</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="breadcrumb"><a href="students.html">All Classes</a><span class="sep">/</span><span class="current">Student Profile</span></div>
+
+      <div id="profile-area">
+        <div class="content-header">
+          <h2 id="student-name-heading">Loading…</h2>
+          <p id="student-subheading"></p>
+        </div>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="basic">Basic</button>
+          <button class="tab-btn" data-tab="academic">Academic</button>
+          <button class="tab-btn" data-tab="transport">Transport</button>
+          <button class="tab-btn" data-tab="fees">Fees</button>
+          <button class="tab-btn" data-tab="academics">Marks</button>
+        </div>
+
+        <div class="tab-panel active card" id="panel-basic">
+          <div class="loading-row">Loading…</div>
+        </div>
+
+        <div class="tab-panel card" id="panel-academic">
+          <div class="loading-row">Loading…</div>
+        </div>
+
+        <div class="tab-panel card" id="panel-transport">
+          <p class="field-hint">Per-student bus assignment and fee — coming in Phase 3.</p>
+        </div>
+
+        <div class="tab-panel card" id="panel-fees">
+          <p class="field-hint">Academic + bus fee, discount, paid/pending, and payment history — coming in Phase 4.</p>
+        </div>
+
+        <div class="tab-panel card" id="panel-academics">
+          <p class="field-hint">Subjects, exams, marks, percentage and pass/fail — coming in Phase 5.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/student-profile.js"></script>
+</body>
+</html>

@@ -20,12 +20,8 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">⚙️</div>
-        <h2>Academic years, classes/sections, and staff accounts</h2>
-        <p>Admin-only settings screens are built out alongside the modules that need them: academic years and
-          classes/sections in Phase 2, staff account management once Phase 1's auth foundation is confirmed
-          working end-to-end.</p>
+      <div id="settings-content">
+        <div class="loading-row">Loading…</div>
       </div>
     </main>
   </div>
@@ -34,6 +30,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/settings.js"></script>
 </body>
 </html>
