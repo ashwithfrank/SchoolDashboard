@@ -1,8 +1,8 @@
 // ==========================================================
 // Student profile: Basic (view/edit), Academic history,
-// Transport (view/assign/edit/remove), and Fees (view/setup/
-// discount/record payment/history) are functional. Marks is a
-// placeholder until Phase 5 ships.
+// Transport (view/assign/edit/remove), Fees (view/setup/
+// discount/record payment/history), and Marks (view, read-only
+// here — entry happens on the exam's own page) are functional.
 // ==========================================================
 
 let STUDENT_ID = null;
@@ -12,6 +12,7 @@ let CAN_MANAGE_TRANSPORT = false;
 let CAN_MANAGE_FEES = false;
 let CAN_RECORD_PAYMENT = false;
 let CAN_VIEW_FEES = false;
+let CAN_VIEW_MARKS = false;
 let CURRENT_USER_ID = null;
 let STUDENT_DATA = null;
 let CURRENT_YEAR = null;
@@ -26,6 +27,7 @@ let CURRENT_YEAR = null;
   CAN_MANAGE_FEES = permissionCodes.has("academic_fees.manage");
   CAN_RECORD_PAYMENT = permissionCodes.has("fee_payments.record");
   CAN_VIEW_FEES = CAN_MANAGE_FEES || CAN_RECORD_PAYMENT || permissionCodes.has("fee_reports.view");
+  CAN_VIEW_MARKS = permissionCodes.has("marks.manage") || permissionCodes.has("academic_reports.view");
   CURRENT_USER_ID = session.user.id;
 
   const params = new URLSearchParams(window.location.search);
@@ -44,6 +46,7 @@ let CURRENT_YEAR = null;
   await loadAcademicHistory();
   await loadTransport();
   await loadFees();
+  await loadMarks();
 })();
 
 function wireTabs() {
@@ -715,6 +718,57 @@ function renderDiscountEditForm(assignment) {
 
     await loadFees();
   });
+}
+
+// ---------- Marks tab ----------
+
+async function loadMarks() {
+  const panel = document.getElementById("panel-academics");
+
+  if (!CAN_VIEW_MARKS) {
+    panel.innerHTML = `<p class="field-hint">Marks aren't visible to your role.</p>`;
+    return;
+  }
+
+  const { data, error } = await supabaseClient
+    .from("student_marks_summary")
+    .select("scored_marks, max_marks, min_marks, percentage, result, exams ( name, exam_date, academic_years ( label ) ), subjects ( name )")
+    .eq("student_id", STUDENT_ID)
+    .order("exam_id", { ascending: false });
+
+  if (error) {
+    panel.innerHTML = `<p class="field-hint">Couldn't load marks.</p>`;
+    return;
+  }
+
+  if (!data.length) {
+    panel.innerHTML = `<p class="field-hint">No marks recorded yet.</p>`;
+    return;
+  }
+
+  panel.innerHTML = `
+    <table>
+      <thead><tr><th>Academic Year</th><th>Exam</th><th>Subject</th><th>Scored</th><th>Max</th><th>Pass Mark</th><th>Percentage</th><th>Result</th></tr></thead>
+      <tbody>
+        ${data
+          .map(
+            (m) => `
+              <tr>
+                <td>${escapeHtml(m.exams.academic_years.label)}</td>
+                <td>${escapeHtml(m.exams.name)}</td>
+                <td>${escapeHtml(m.subjects.name)}</td>
+                <td>${m.scored_marks}</td>
+                <td>${m.max_marks}</td>
+                <td>${m.min_marks}</td>
+                <td>${m.percentage}%</td>
+                <td><span class="badge ${m.result === "PASS" ? "badge-success" : "badge-danger"}">${m.result}</span></td>
+              </tr>
+            `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
 }
 
 // ---------- Helpers ----------

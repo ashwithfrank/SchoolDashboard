@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Exam Detail — School Staff Management Dashboard</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="sidebar-root"></div>
+
+  <div class="main-area">
+    <header class="topbar">
+      <div style="display:flex; align-items:center;">
+        <button class="menu-toggle" id="menu-toggle" aria-label="Toggle menu">☰</button>
+        <h1 id="page-title">Exam Detail</h1>
+      </div>
+    </header>
+
+    <main class="content">
+      <div class="breadcrumb"><a href="academics.html">Academics</a><span class="sep">/</span><span class="current" id="exam-heading">Loading…</span></div>
+
+      <div id="detail-area">
+        <div class="card" style="margin-bottom:20px;">
+          <h3 style="margin-bottom:14px;">Exam Information</h3>
+          <div id="exam-info"><div class="loading-row">Loading…</div></div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <h3 style="margin-bottom:14px;">Subjects &amp; Thresholds</h3>
+          <p class="field-hint" style="margin-bottom:14px;">Max and pass marks are set once per subject here — not re-entered for every student.</p>
+          <div id="thresholds-body"><div class="loading-row">Loading…</div></div>
+        </div>
+
+        <div class="card">
+          <h3 style="margin-bottom:14px;">Enter Marks</h3>
+          <div id="marks-subject-picker" style="margin-bottom:16px;"><div class="loading-row">Loading…</div></div>
+          <div id="marks-grid-area"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/exam-detail.js"></script>
+</body>
+</html>

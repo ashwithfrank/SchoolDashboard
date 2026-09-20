@@ -109,9 +109,20 @@ Phase 3 (Employees + Buses) needs no new migrations — it uses the
 `employees`, `buses`, and `student_transport_assignments` tables and RLS
 policies that were already part of Phase 1.
 
+Phase 4 (Fee Structures + Fee Collection) needs one small RLS fix:
+
+7. `sql/007_broaden_profile_read.sql` — widens who can read the `profiles`
+   table (see the comment at the top of that file for why: payment history
+   shows who recorded each payment, which needs every staff member to be
+   able to read *names* off `profiles`, not just their own row).
+
+Phase 5 (Academics: subjects, exams, marks) needs no new migrations — it
+uses the `subjects`, `class_subjects`, `exams`, `exam_subjects`, and `marks`
+tables and RLS policies that were already part of Phase 1.
+
 ---
 
-## What to test right now (Phase 1 + 2 + 3)
+## What to test right now (Phase 1 + 2 + 3 + 4 + 5)
 
 **Phase 1 — auth, roles, dashboard shell:**
 
@@ -151,6 +162,33 @@ policies that were already part of Phase 1.
 - [ ] Log in as Teaching Staff and open a student's Transport tab — it should say transport details aren't visible to that role, rather than showing (or erroring on) any fee data
 - [ ] Log in as Office Staff and confirm they **can** see and edit Transport (per the confirmed matrix), but that Employees and Buses pages don't show "+ Add" controls for them (view-only) and the sidebar doesn't list Employees for that role at all
 
+**Phase 4 — fee structures, fee collection:**
+
+- [ ] In **Fee Collection**, set an academic fee for a couple of classes (e.g. Class 5 → ₹20,000) — confirm it saves and shows in the table
+- [ ] Open a student in one of those classes → **Fees** tab → it should say fees aren't set up yet and offer a "Set up fees" form, pre-filled with that class's academic fee
+- [ ] Submit that form — the tab should now show the full breakdown (Academic fee / Bus fee / Discount / Total / Paid / Pending), with **Paid = ₹0** since nothing's been recorded yet
+- [ ] If that student already has a bus assignment from Phase 3 testing, confirm the **Bus fee** shown here matches what you set on their Transport tab exactly (this is the "computed from the transport table, never duplicated" design working)
+- [ ] Use **Record a Payment** to log a partial payment (e.g. ₹5,000 of a ₹20,000 fee) — confirm Paid/Pending update immediately and the payment appears in Payment History with today's date and your name under "Recorded By"
+- [ ] Record a second payment from a **different** staff account (Admin and Office both have `fee_payments.record`) — confirm the first account can still see the second account's name under "Recorded By" (this is what migration 007 fixes — without it, that column would be blank for anyone else's payments)
+- [ ] Click **Edit discount** on a student's Fees tab, set a discount, save — confirm Total and Pending recalculate immediately, and that the discount amount is never something you can set by editing "Total" directly (there is no editable Total field — it's always derived)
+- [ ] Go back to **Fee Collection** → the "Collection by Class" table and the top summary cards should reflect the payment(s) you just recorded
+- [ ] Log in as Teaching Staff and open a student's Fees tab — it should say fee details aren't visible to that role
+- [ ] Try to record a payment with a negative or zero amount — the database has a `check (amount > 0)` constraint, so this should fail even if you bypass the form (e.g. via the browser console)
+
+**Phase 5 — subjects, exams, marks:**
+
+- [ ] In **Academics**, add a couple of subjects (e.g. Mathematics, English)
+- [ ] Under "Subjects by Class", check a couple of subjects for a class (e.g. Class 5 → Mathematics, English) and save
+- [ ] Add an exam for that class (e.g. "Mid Term") with a date
+- [ ] Open the exam → **Subjects & Thresholds** → add Mathematics with max 100 / pass 35
+- [ ] Under **Enter Marks**, pick Mathematics from the dropdown — you should see every student currently enrolled in that class for the current year
+- [ ] Type a score for a couple of students (try one that should pass, e.g. 78, and one that should fail, e.g. 29) — confirm the Result column updates **live as you type**, before you've even saved
+- [ ] Click **Save Marks** — reload the page, re-select Mathematics, and confirm the scores you entered are still there
+- [ ] Open one of those students' profile → **Marks** tab — confirm the same exam/subject/score appears there, with percentage and PASS/FAIL matching what the exam page showed (this is the same `student_marks_summary` view in both places — one source of truth)
+- [ ] Try setting a subject's pass marks higher than its max marks when adding a threshold — it should be rejected with a clear message before it ever reaches the database
+- [ ] Log in as Office Staff and confirm Academics isn't in their sidebar at all, and that a student's Marks tab says marks aren't visible to that role
+- [ ] As Teaching Staff, confirm you *can* do everything above (subjects, exams, thresholds, marks) — the matrix gives Teaching Staff the same academic permissions as Admin, just not the fee/employee/bus ones
+
 If any of those don't hold, tell me what you saw vs. expected and I'll fix it.
 
 ---
@@ -165,23 +203,25 @@ sql/
   004_rls_policies.sql
   005_seed.sql
   006_academic_year_functions.sql
+  007_broaden_profile_read.sql
 public/
   index.html                -> redirects to login or dashboard based on session
   login.html
   dashboard.html             -> live stat cards
   students.html                -> class grid -> sections -> student list, + global search
   student-form.html              -> Add Student (Admin only)
-  student-profile.html             -> Basic, Academic, and Transport are functional; Fees/Marks are Phase 4-5 stubs
+  student-profile.html             -> Basic, Academic, Transport, Fees, and Marks are all functional
   employees.html                     -> list + filters (Admin adds/edits)
   employee-form.html                   -> Add/Edit Employee (Admin only)
   buses.html                             -> fleet list with insurance/FC expiry badges
   bus-form.html                            -> Add/Edit Bus (Admin only)
   bus-detail.html                            -> bus info + assigned-students roster (Admin + Office see the roster)
-  fees.html                                    -> Phase 4 placeholder (Admin + Office)
-  academics.html                                 -> Phase 5 placeholder (Admin + Teaching)
-  reports.html                                     -> Phase 6 placeholder
-  audit-logs.html                                    -> Phase 7 placeholder (Admin only)
-  settings.html                                        -> Academic years + Classes/Sections management (Admin only)
+  fees.html                                    -> summary + class-wise collection + fee structures + student search
+  academics.html                                 -> subjects catalog, class-subject assignment, exams list
+  exam-detail.html                                 -> per-exam thresholds (max/min marks) + marks entry grid
+  reports.html                                       -> Phase 6 placeholder
+  audit-logs.html                                      -> Phase 7 placeholder (Admin only)
+  settings.html                                          -> Academic years + Classes/Sections management (Admin only)
   css/styles.css
   js/
     supabase-client.js    -> fill in your project URL + anon key here
@@ -190,19 +230,22 @@ public/
     dashboard.js
     students.js            -> class/section browsing + search
     student-form.js
-    student-profile.js      -> Basic/Academic/Transport tab logic
+    student-profile.js      -> Basic/Academic/Transport/Fees/Marks tab logic
     settings.js            -> academic years + classes/sections
     employees.js            -> employee list + filters
     employee-form.js
     buses.js                -> bus list + expiry badge logic
     bus-form.js
     bus-detail.js            -> bus info + roster (permission-gated)
+    fees.js                   -> fee summary, class breakdown, fee structures, student search
+    academics.js               -> subjects, class-subject assignment, exams list
+    exam-detail.js               -> thresholds + marks entry grid, live percentage/pass-fail
 ```
 
 ## Notes on what's deliberately not built yet
 
-- No fee/academic CRUD screens yet — Phases 4–5 (fee structures, payments,
-  subjects, exams, marks).
+- No reports/export screens yet — Phase 6 (print/export, more report types
+  beyond the class-wise fee breakdown already on the Fees page).
 - No staff-account-management UI — Admin creates new logins via SQL for now
   (step 3 above); that screen is one of the first things worth building next,
   since it removes the only manual-SQL step in normal operation.
@@ -221,3 +264,6 @@ public/
   row outright (not a soft-deactivate) — matching the "no row = no bus"
   design from the architecture doc, and it also means they can be reassigned
   to a different bus the same year without hitting a uniqueness conflict.
+- Removing a subject from an exam's thresholds (`exam_subjects`) cascades to
+  delete any marks already recorded for that subject on that exam — the
+  confirmation dialog says so before you click through.
