@@ -120,9 +120,12 @@ Phase 5 (Academics: subjects, exams, marks) needs no new migrations — it
 uses the `subjects`, `class_subjects`, `exams`, `exam_subjects`, and `marks`
 tables and RLS policies that were already part of Phase 1.
 
+Phase 6 (Reports) needs no new migrations either — it's read-only against
+data and RLS that already exist; it just queries them differently.
+
 ---
 
-## What to test right now (Phase 1 + 2 + 3 + 4 + 5)
+## What to test right now (Phase 1 + 2 + 3 + 4 + 5 + 6)
 
 **Phase 1 — auth, roles, dashboard shell:**
 
@@ -189,6 +192,18 @@ tables and RLS policies that were already part of Phase 1.
 - [ ] Log in as Office Staff and confirm Academics isn't in their sidebar at all, and that a student's Marks tab says marks aren't visible to that role
 - [ ] As Teaching Staff, confirm you *can* do everything above (subjects, exams, thresholds, marks) — the matrix gives Teaching Staff the same academic permissions as Admin, just not the fee/employee/bus ones
 
+**Phase 6 — reports:**
+
+- [ ] In **Reports**, run the **Student Fee Report** for the current year — confirm the numbers match what you'd see on each of those students' own Fees tabs
+- [ ] Filter it by class, then by "Has pending" / "Fully paid" — confirm the filtered rows actually match those statuses
+- [ ] Run the **Class-wise Fee Report** — confirm the totals per class match what's already on the Fee Collection page (same underlying calculation, two different views of it)
+- [ ] Run the **Bus-wise Fee Report** — confirm it only shows students who actually have a transport assignment, and that the "Bus Fee Due" per bus matches the sum of what you set on each student's Transport tab
+- [ ] Run the **Student Academic Report**, pick an exam — confirm it lists every student who has marks for that exam, with the same percentage/PASS-FAIL you'd see on their profile
+- [ ] Click **Export CSV** on any report — open the downloaded file and confirm the columns and numbers match what's on screen
+- [ ] Click **Print** — confirm the print preview shows just the report title and table, with the sidebar, filters, and Export/Print buttons hidden
+- [ ] Log in as Office Staff — confirm they see Student/Class/Bus fee reports but **not** the Student Academic Report option in the dropdown
+- [ ] Log in as Teaching Staff — confirm the reverse: only the Student Academic Report option is available
+
 If any of those don't hold, tell me what you saw vs. expected and I'll fix it.
 
 ---
@@ -219,7 +234,7 @@ public/
   fees.html                                    -> summary + class-wise collection + fee structures + student search
   academics.html                                 -> subjects catalog, class-subject assignment, exams list
   exam-detail.html                                 -> per-exam thresholds (max/min marks) + marks entry grid
-  reports.html                                       -> Phase 6 placeholder
+  reports.html                                       -> Student/Class/Bus fee reports + Student Academic report, CSV export, print
   audit-logs.html                                      -> Phase 7 placeholder (Admin only)
   settings.html                                          -> Academic years + Classes/Sections management (Admin only)
   css/styles.css
@@ -240,12 +255,11 @@ public/
     fees.js                   -> fee summary, class breakdown, fee structures, student search
     academics.js               -> subjects, class-subject assignment, exams list
     exam-detail.js               -> thresholds + marks entry grid, live percentage/pass-fail
+    reports.js                     -> student/class/bus fee reports, academic report, CSV export
 ```
 
 ## Notes on what's deliberately not built yet
 
-- No reports/export screens yet — Phase 6 (print/export, more report types
-  beyond the class-wise fee breakdown already on the Fees page).
 - No staff-account-management UI — Admin creates new logins via SQL for now
   (step 3 above); that screen is one of the first things worth building next,
   since it removes the only manual-SQL step in normal operation.

@@ -20,11 +20,8 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">📊</div>
-        <h2>Reports are coming in Phase 6</h2>
-        <p>Class-wise, bus-wise, and year-wise fee and academic reports, with print/export — each report scoped to
-          what your role can already see under RLS.</p>
+      <div id="reports-content">
+        <div class="loading-row">Loading…</div>
       </div>
     </main>
   </div>
@@ -33,6 +30,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/reports.js"></script>
 </body>
 </html>
