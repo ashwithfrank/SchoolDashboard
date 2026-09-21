@@ -123,9 +123,58 @@ tables and RLS policies that were already part of Phase 1.
 Phase 6 (Reports) needs no new migrations either — it's read-only against
 data and RLS that already exist; it just queries them differently.
 
+Phase 7 (Audit logging + security/performance review) needs two migrations:
+
+8. `sql/008_audit_log_triggers.sql` — the triggers that actually populate
+   `audit_logs` (it's existed since Phase 1, enforced-but-empty until now).
+9. `sql/009_performance_indexes.sql` — one missing index the Reports page's
+   year-wide queries needed (see the comment in that file for the specific
+   query pattern it fixes).
+
 ---
 
-## What to test right now (Phase 1 + 2 + 3 + 4 + 5 + 6)
+## Security & performance review (Phase 7)
+
+A pass through everything built so far, specifically looking for gaps —
+not just "does it work," but "does it fail safely."
+
+**What this checked:**
+- Every table has RLS enabled with a default-deny posture — confirmed by
+  re-reading `004_rls_policies.sql` end to end against the role/permission
+  matrix in the architecture doc, table by table.
+- Financial and academic tables that must never be silently overwritten
+  (`fee_payments`, `audit_logs`) have no UPDATE or DELETE policy at all —
+  not "restricted," genuinely absent, so even an Admin can't edit or delete
+  a row through the API, only through direct database access.
+- The two most sensitive cross-cutting rules are enforced by triggers, not
+  just RLS: only an Admin can change a student's `status` (deactivate/mark
+  alumni/etc.) even though Office and Teaching can edit other identity
+  fields, and nobody can escalate their own `role_id`/`employee_id`/
+  `is_active` on their own profile even though they can edit their own
+  display name. Both were re-verified against `004_rls_policies.sql`.
+- No table or view is missing an index for a query pattern actually used
+  in the app — this review is what caught the one gap in
+  `009_performance_indexes.sql` (see that file's comment for specifics).
+- No realtime subscriptions anywhere — every screen fetches on load/action,
+  per the original performance requirement to avoid those at this scale.
+- Search and list views are all bounded (students/fees search cap at 25-100
+  rows, audit logs paginate 50 at a time) — nothing fetches the full
+  student roster into the browser except the Reports page, which is
+  explicitly a full-roster report by nature, not an oversight.
+- The `profiles` read policy was already widened once (migration 007) after
+  Phase 4 surfaced a real gap. Re-checked here that the widening didn't
+  overreach: profiles are readable by any active staff member, but still
+  only self-or-Admin *writable* — unchanged.
+
+**What this did not do** (worth knowing, not done here): load-testing
+against real data volume, a dependency/CVE audit of the Supabase JS SDK
+version pinned in the CDN URL, or a formal penetration test. Those are
+reasonable next steps before a real production rollout, but are outside
+what a code review from inside this conversation can verify.
+
+---
+
+## What to test right now (Phase 1 + 2 + 3 + 4 + 5 + 6 + 7)
 
 **Phase 1 — auth, roles, dashboard shell:**
 
@@ -204,6 +253,17 @@ data and RLS that already exist; it just queries them differently.
 - [ ] Log in as Office Staff — confirm they see Student/Class/Bus fee reports but **not** the Student Academic Report option in the dropdown
 - [ ] Log in as Teaching Staff — confirm the reverse: only the Student Academic Report option is available
 
+**Phase 7 — audit logs, security, responsive:**
+
+- [ ] Record a fee payment, then check **Audit Logs** (Admin only) — a `fee_payments.insert` entry should appear at the top almost immediately, with your name as the actor
+- [ ] Edit a student's Basic details, then check Audit Logs again — a `students.update` entry should appear; click **View** on it and confirm the expanded JSON shows both the "old" and "new" values of the row
+- [ ] Remove a student from a bus (Transport tab) — confirm a `student_transport_assignments.delete` entry appears (deletions are logged too, not just inserts/updates)
+- [ ] Filter Audit Logs by entity type (e.g. just "Marks") and by a date range — confirm the results narrow correctly
+- [ ] With more than 50 log entries, confirm **Load more** appends the next batch rather than re-fetching everything, and that it disappears once you've reached the end
+- [ ] Log in as Office Staff or Teaching Staff and confirm Audit Logs isn't in their sidebar, and that navigating to `audit-logs.html` directly shows "Not authorized" rather than any data
+- [ ] Shrink your browser window (or use a phone) and open a wide table — e.g. the Student Fee Report or a class's student list — confirm the **page** doesn't scroll sideways, but the table itself does, within its own card
+- [ ] Confirm the mobile hamburger menu (☰) still opens/closes the sidebar correctly on every page, not just Dashboard
+
 If any of those don't hold, tell me what you saw vs. expected and I'll fix it.
 
 ---
@@ -219,6 +279,8 @@ sql/
   005_seed.sql
   006_academic_year_functions.sql
   007_broaden_profile_read.sql
+  008_audit_log_triggers.sql
+  009_performance_indexes.sql
 public/
   index.html                -> redirects to login or dashboard based on session
   login.html
@@ -235,7 +297,7 @@ public/
   academics.html                                 -> subjects catalog, class-subject assignment, exams list
   exam-detail.html                                 -> per-exam thresholds (max/min marks) + marks entry grid
   reports.html                                       -> Student/Class/Bus fee reports + Student Academic report, CSV export, print
-  audit-logs.html                                      -> Phase 7 placeholder (Admin only)
+  audit-logs.html                                      -> filterable, paginated audit trail (Admin only)
   settings.html                                          -> Academic years + Classes/Sections management (Admin only)
   css/styles.css
   js/
@@ -256,20 +318,23 @@ public/
     academics.js               -> subjects, class-subject assignment, exams list
     exam-detail.js               -> thresholds + marks entry grid, live percentage/pass-fail
     reports.js                     -> student/class/bus fee reports, academic report, CSV export
+    audit-logs.js                    -> filterable, paginated audit trail viewer
 ```
 
 ## Notes on what's deliberately not built yet
 
+All seven original phases are now functionally complete. What's left is
+smaller, known gaps rather than whole phases:
+
 - No staff-account-management UI — Admin creates new logins via SQL for now
-  (step 3 above); that screen is one of the first things worth building next,
-  since it removes the only manual-SQL step in normal operation.
-- No audit-log-writing triggers yet — the table and its RLS exist and are
-  locked down, but nothing populates it yet (Phase 7).
+  (step 3 above). This is the single remaining manual-SQL step in normal
+  day-to-day operation, and the most valuable thing to build next.
 - No bulk promotion, and no way to move a student to a new year/class from the
   UI yet — the schema is shaped for it (see the architecture doc: every
   enrollment is its own row per student per year), but the promotion workflow
-  itself is a later phase. Right now a student's academic history can only
-  grow via the initial enrollment created when they're added.
+  itself was never built as a dedicated screen. Right now a student's
+  academic history can only grow via the initial enrollment created when
+  they're added.
 - Section coordinators (`section_coordinators` table) have no UI yet — the
   schema and RLS are in place, but assigning a coordinator to a section isn't
   exposed anywhere yet. Worth adding to Settings alongside sections if you
@@ -281,3 +346,12 @@ public/
 - Removing a subject from an exam's thresholds (`exam_subjects`) cascades to
   delete any marks already recorded for that subject on that exam — the
   confirmation dialog says so before you click through.
+- Audit log entries capture full before/after row snapshots as jsonb. That's
+  intentional (it's what makes "what exactly changed" answerable), and it's
+  safe specifically because `audit_logs` is Admin-only readable — but if you
+  ever add a column with something you wouldn't want even an Admin to see in
+  plain text via the audit trail, exclude it explicitly in
+  `audit_log_trigger()` in `008_audit_log_triggers.sql`.
+- The security/performance review (see above) was a code-level pass, not a
+  load test or formal pentest. Worth doing before a real production rollout,
+  particularly once real enrollment numbers are in the system.

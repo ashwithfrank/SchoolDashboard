@@ -20,12 +20,8 @@
     </header>
 
     <main class="content">
-      <div class="empty-state card">
-        <div class="empty-icon">🛡️</div>
-        <h2>Audit logging is wired into the schema, and its screen ships in Phase 7</h2>
-        <p>The <code>audit_logs</code> table and its RLS policies (Admin-only read, insert-only, no edits or
-          deletes ever) already exist. Database triggers that populate it automatically on sensitive changes are
-          added alongside the security review in Phase 7.</p>
+      <div id="audit-content">
+        <div class="loading-row">Loading…</div>
       </div>
     </main>
   </div>
@@ -34,6 +30,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/nav.js"></script>
-<script>initShell();</script>
+<script src="js/audit-logs.js"></script>
 </body>
 </html>

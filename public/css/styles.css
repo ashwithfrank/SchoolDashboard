@@ -288,6 +288,11 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
   border-radius: var(--radius);
   padding: 18px 20px;
   box-shadow: var(--shadow-card);
+  /* Wide tables (reports, fee breakdowns) scroll horizontally inside the
+     card on narrow screens instead of squeezing columns or breaking the
+     page layout. Native <select> dropdowns render outside document flow,
+     so this doesn't clip them. */
+  overflow-x: auto;
 }
 
 .stat-grid {
