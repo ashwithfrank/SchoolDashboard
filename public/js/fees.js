@@ -238,7 +238,7 @@ function wireSearch() {
     const q = document.getElementById("fee-search-input").value.trim();
     if (!q) return;
 
-    const like = `%${q}%`;
+    const like = `%${sanitizeForOrFilter(q)}%`;
     const { data, error } = await supabaseClient
       .from("students")
       .select("id, full_name, sats_number, admission_number")
@@ -281,6 +281,10 @@ function wireSearch() {
 
 function formatCurrency(amount) {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(amount || 0);
+}
+
+function sanitizeForOrFilter(str) {
+  return str.replace(/[,()]/g, " ").trim();
 }
 
 function escapeHtml(str) {

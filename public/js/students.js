@@ -277,7 +277,12 @@ async function renderSearchResults(q) {
     { label: `Search: "${q}"`, href: "#" },
   ]);
 
-  const like = `%${q}%`;
+  // Commas and parentheses are structural characters in PostgREST's
+  // .or() filter syntax (comma separates conditions, parens group them) —
+  // strip them from user-typed search text so a name like "Sharma, R."
+  // or "Kumar (Jr.)" can't corrupt the filter instead of just matching it.
+  const safeQ = sanitizeForOrFilter(q);
+  const like = `%${safeQ}%`;
   const { data: rows, error } = await supabaseClient
     .from("students")
     .select("id, full_name, sats_number, admission_number, father_name, mother_name, contact_number, status")
@@ -338,6 +343,10 @@ function statusBadge(status) {
     inactive: "badge-danger",
   };
   return `<span class="badge ${map[status] || "badge-neutral"}">${escapeHtml(status)}</span>`;
+}
+
+function sanitizeForOrFilter(str) {
+  return str.replace(/[,()]/g, " ").trim();
 }
 
 function escapeHtml(str) {

@@ -42,7 +42,10 @@ let CURRENT_YEAR = null;
   CURRENT_YEAR = year || null;
 
   wireTabs();
-  await loadStudent();
+  const studentFound = await loadStudent();
+  if (!studentFound) return; // profile-area already shows the "not found" message; the
+  // tab panels it would have contained no longer exist in the DOM, so
+  // don't try to render into them.
   await loadAcademicHistory();
   await loadTransport();
   await loadFees();
@@ -67,13 +70,14 @@ async function loadStudent() {
 
   if (error || !data) {
     document.getElementById("profile-area").innerHTML = `<div class="loading-row">Student not found, or you don't have access.</div>`;
-    return;
+    return false;
   }
 
   STUDENT_DATA = data;
   document.getElementById("student-name-heading").textContent = data.full_name;
   document.getElementById("student-subheading").textContent = `SATS ${data.sats_number}`;
   renderBasicView();
+  return true;
 }
 
 function renderBasicView() {
@@ -730,9 +734,17 @@ async function loadMarks() {
     return;
   }
 
+  // NOTE: student_marks_summary is a joined/computed view, not a table —
+  // PostgREST can't reliably resolve relational embeds (exams(...),
+  // subjects(...)) through it (marks.exam_id/subject_id don't even carry
+  // single-column foreign keys; only a composite FK to exam_subjects
+  // exists). So this fetches the view flat, then looks up exam/subject
+  // names as a second query against the real tables (where embedding
+  // does work, since those have real single-column FKs) and merges
+  // client-side.
   const { data, error } = await supabaseClient
     .from("student_marks_summary")
-    .select("scored_marks, max_marks, min_marks, percentage, result, exams ( name, exam_date, academic_years ( label ) ), subjects ( name )")
+    .select("exam_id, subject_id, scored_marks, max_marks, min_marks, percentage, result")
     .eq("student_id", STUDENT_ID)
     .order("exam_id", { ascending: false });
 
@@ -746,25 +758,39 @@ async function loadMarks() {
     return;
   }
 
+  const examIds = [...new Set(data.map((m) => m.exam_id))];
+  const subjectIds = [...new Set(data.map((m) => m.subject_id))];
+
+  const [{ data: exams }, { data: subjects }] = await Promise.all([
+    supabaseClient.from("exams").select("id, name, academic_years ( label )").in("id", examIds),
+    supabaseClient.from("subjects").select("id, name").in("id", subjectIds),
+  ]);
+
+  const examById = {};
+  (exams || []).forEach((e) => (examById[e.id] = e));
+  const subjectById = {};
+  (subjects || []).forEach((s) => (subjectById[s.id] = s));
+
   panel.innerHTML = `
     <table>
       <thead><tr><th>Academic Year</th><th>Exam</th><th>Subject</th><th>Scored</th><th>Max</th><th>Pass Mark</th><th>Percentage</th><th>Result</th></tr></thead>
       <tbody>
         ${data
-          .map(
-            (m) => `
+          .map((m) => {
+            const exam = examById[m.exam_id];
+            const subject = subjectById[m.subject_id];
+            return `
               <tr>
-                <td>${escapeHtml(m.exams.academic_years.label)}</td>
-                <td>${escapeHtml(m.exams.name)}</td>
-                <td>${escapeHtml(m.subjects.name)}</td>
+                <td>${exam && exam.academic_years ? escapeHtml(exam.academic_years.label) : "—"}</td>
+                <td>${exam ? escapeHtml(exam.name) : "—"}</td>
+                <td>${subject ? escapeHtml(subject.name) : "—"}</td>
                 <td>${m.scored_marks}</td>
                 <td>${m.max_marks}</td>
                 <td>${m.min_marks}</td>
                 <td>${m.percentage}%</td>
                 <td><span class="badge ${m.result === "PASS" ? "badge-success" : "badge-danger"}">${m.result}</span></td>
-              </tr>
-            `
-          )
+              </tr>`;
+          })
           .join("")}
       </tbody>
     </table>

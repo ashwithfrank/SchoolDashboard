@@ -133,6 +133,46 @@ Phase 7 (Audit logging + security/performance review) needs two migrations:
 
 ---
 
+## Testing pass (post-Phase 7): real bugs found and fixed
+
+Everything above this point had only been checked by static review and
+hand-built visual mockups — not by actually running the app's own code.
+This pass fixed that: I built an in-memory mock of Supabase and ran the
+app's real, unmodified JS files against it headlessly (44 automated checks
+across every page, all three roles, and full interactive flows — adding
+records, recording a payment, entering marks, assigning transport, running
+reports). That surfaced real bugs no amount of reading the code would
+have caught:
+
+- **Broken Marks tab and Student Academic Report.** Both tried to embed
+  relational data (`exams(...)`, `subjects(...)`) through
+  `student_marks_summary`, which is a SQL *view* built from a join, not a
+  table — PostgREST can't reliably resolve foreign-key embedding through a
+  view like that, and `marks.exam_id`/`subject_id` don't even carry direct
+  single-column foreign keys (only a composite one to `exam_subjects`).
+  This would very likely have thrown a "relationship not found" error in
+  production, the same class of error as the `set_current_academic_year`
+  issue earlier. Fixed in both `student-profile.js` and `reports.js`: fetch
+  the view flat, then look up the display names against the real tables
+  (which embed fine) and merge client-side.
+- **Search boxes vulnerable to malformed input.** A comma or parenthesis
+  typed into the Students, Fees, or Employees search box would corrupt
+  Supabase's `.or()` filter syntax. Fixed by sanitizing search input in all
+  three places.
+- **A crash on a bad/missing student link.** If `student-profile.html?id=`
+  pointed at a student that doesn't exist (or isn't visible under RLS), the
+  page correctly showed "Student not found" — but then kept trying to load
+  the Academic/Transport/Fees/Marks tabs into DOM elements that message had
+  already replaced, throwing a real JavaScript error. Fixed by stopping
+  the page's init sequence as soon as the student lookup fails.
+
+None of this was found by re-reading the code carefully; it took actually
+executing it. The full harness (mock client, seed data, and the 44-check
+suite) isn't part of the app itself, so it isn't in this zip, but the
+fixes it found are.
+
+---
+
 ## Security & performance review (Phase 7)
 
 A pass through everything built so far, specifically looking for gaps —

@@ -37,7 +37,10 @@ async function load() {
 
   if (type) query = query.eq("employee_type", type);
   if (status) query = query.eq("is_active", status === "active");
-  if (q) query = query.or(`full_name.ilike.%${q}%,employee_code.ilike.%${q}%,contact_number.ilike.%${q}%`);
+  if (q) {
+    const safeQ = sanitizeForOrFilter(q);
+    query = query.or(`full_name.ilike.%${safeQ}%,employee_code.ilike.%${safeQ}%,contact_number.ilike.%${safeQ}%`);
+  }
 
   const { data, error } = await query;
   const tbody = document.getElementById("employees-tbody");
@@ -71,6 +74,10 @@ async function load() {
 function typeBadge(type) {
   const labels = { teaching: "Teaching", office: "Office", driver: "Driver", other: "Other" };
   return `<span class="badge badge-neutral">${labels[type] || escapeHtml(type)}</span>`;
+}
+
+function sanitizeForOrFilter(str) {
+  return str.replace(/[,()]/g, " ").trim();
 }
 
 function escapeHtml(str) {

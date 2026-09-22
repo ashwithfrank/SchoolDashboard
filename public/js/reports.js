@@ -297,9 +297,13 @@ async function runAcademicReport() {
 
   const { data: exam } = await supabaseClient.from("exams").select("name, classes ( name )").eq("id", examId).maybeSingle();
 
+  // NOTE: student_marks_summary is a joined/computed view, not a table —
+  // PostgREST can't reliably resolve relational embeds through it (see the
+  // matching note in student-profile.js's loadMarks()). Fetch flat, then
+  // look up student/subject names against the real tables and merge here.
   const { data, error } = await supabaseClient
     .from("student_marks_summary")
-    .select("scored_marks, max_marks, min_marks, percentage, result, students ( full_name, sats_number ), subjects ( name )")
+    .select("student_id, subject_id, scored_marks, max_marks, min_marks, percentage, result")
     .eq("exam_id", examId);
 
   if (error) {
@@ -307,13 +311,35 @@ async function runAcademicReport() {
     return;
   }
 
-  const rows = (data || []).sort((a, b) => a.students.full_name.localeCompare(b.students.full_name) || a.subjects.name.localeCompare(b.subjects.name));
+  const studentIds = [...new Set((data || []).map((r) => r.student_id))];
+  const subjectIds = [...new Set((data || []).map((r) => r.subject_id))];
+
+  const [studentsRes, subjectsRes] = await Promise.all([
+    studentIds.length
+      ? supabaseClient.from("students").select("id, full_name, sats_number").in("id", studentIds)
+      : Promise.resolve({ data: [] }),
+    subjectIds.length
+      ? supabaseClient.from("subjects").select("id, name").in("id", subjectIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const students = studentsRes.data;
+  const subjects = subjectsRes.data;
+
+  const studentById = {};
+  (students || []).forEach((s) => (studentById[s.id] = s));
+  const subjectById = {};
+  (subjects || []).forEach((s) => (subjectById[s.id] = s));
+
+  const rows = (data || [])
+    .map((r) => ({ ...r, student: studentById[r.student_id], subject: subjectById[r.subject_id] }))
+    .filter((r) => r.student && r.subject)
+    .sort((a, b) => a.student.full_name.localeCompare(b.student.full_name) || a.subject.name.localeCompare(b.subject.name));
 
   const headers = ["Student", "SATS Number", "Subject", "Scored", "Max", "Pass Mark", "Percentage", "Result"];
   const dataRows = rows.map((r) => [
-    r.students.full_name,
-    r.students.sats_number,
-    r.subjects.name,
+    r.student.full_name,
+    r.student.sats_number,
+    r.subject.name,
     r.scored_marks,
     r.max_marks,
     r.min_marks,
